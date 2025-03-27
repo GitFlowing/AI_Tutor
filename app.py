@@ -27,6 +27,53 @@ def call_vector_database(query_text, number_data):
     else:
         return -1
 
+# Use different DeepSeek API keys
+def deepseek_answer():
+    api_key_list = [st.secrets["DEEPSEEK_API_KEY"],
+                    st.secrets["DEEPSEEK_API_KEY_2"],
+                    st.secrets["DEEPSEEK_API_KEY_3"],
+                    st.secrets["DEEPSEEK_API_KEY_4"],
+                    st.secrets["DEEPSEEK_API_KEY_5"],
+                    st.secrets["DEEPSEEK_API_KEY_6"],
+                    st.secrets["DEEPSEEK_API_KEY_7"],
+                    st.secrets["DEEPSEEK_API_KEY_8"],
+                    st.secrets["DEEPSEEK_API_KEY_9"],
+                    st.secrets["DEEPSEEK_API_KEY_10"]
+                    ]
+    api_error = True
+    response = None
+    # Loop through the API keys
+    for api_key in api_key_list:
+        # Check if the API key is valid
+        try:
+            # Create a new OpenAI client with the current API key
+            client = OpenAI(
+                base_url=st.secrets["BASE_URL"],
+                api_key=api_key,
+            )
+            # Test the API key by making a simple request
+            response = client.chat.completions.create(
+                            model="deepseek/deepseek-r1:free",  # DeepSeek R1
+                            messages=st.session_state.messages,
+                            stream=False
+                            )
+
+            api_error = False
+
+        # API Key doesn't work
+        except Exception as e:
+            api_error = True
+            response = None
+
+        # Found working API key
+        if not api_error:
+            break
+
+    return response
+
+
+
+
 def get_youtube_link(havard_id, havard_sources):
     # All sources in ids
     ids_list = havard_id.split('_')
@@ -81,7 +128,7 @@ def call_jupyter_environment(markdown_notebook):
         return None
 
 
-def deepseek_create_notebook(new_prompt, prompt, client):
+def deepseek_create_notebook(new_prompt, prompt):
     # Write message
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -91,12 +138,8 @@ def deepseek_create_notebook(new_prompt, prompt, client):
         st.session_state.messages.append({"role": "user", "content": new_prompt})
 
         # Get result of rag_prompt from deepseek
-        response = client.chat.completions.create(
-                            model="deepseek/deepseek-r1:free",  # DeepSeek R1
-                            messages=st.session_state.messages,
-                            stream=False
-                            )
-        msg = response.choices[0].message.content
+        response = deepseek_answer()
+        msg = response.choices[0].message.content if response else "No Api-Keys available."
 
         # Write session with answer
         st.session_state.messages.pop()
@@ -244,16 +287,6 @@ if option == "Deepseek Coder":
     notebook_upload = st.sidebar.file_uploader("Upload your jupyter notebook", type=["ipynb"])
 
 
-# ========== Deepseek setup ==========
-api_key = st.secrets["DEEPSEEK_API_KEY"]
-base_url = st.secrets["BASE_URL"]
-client = OpenAI(
-  base_url=base_url,
-  api_key=api_key,
-)
-
-
-
 
 # ========== Chat ==========
 # Chat-start
@@ -306,12 +339,8 @@ if prompt:
                 st.session_state.messages.append({"role": "user", "content": rag_prompt})
 
                 # Get result of rag_prompt from deepseek
-                response = client.chat.completions.create(
-                    model="deepseek/deepseek-r1:free",  # DeepSeek R1
-                    messages=st.session_state.messages,
-                    stream=False
-                )
-                msg = response.choices[0].message.content
+                response = deepseek_answer()
+                msg = response.choices[0].message.content if response else "No Api-Keys available."
 
                 # Display sources in vector database
                 if display_sources:
@@ -355,14 +384,10 @@ if prompt:
 
         # DeepSeek API
         try:
-            response = client.chat.completions.create(
-                model="deepseek/deepseek-r1:free",  # DeepSeek R1
-                messages=st.session_state.messages,
-                stream=False
-            )
+            response = deepseek_answer()
 
             # Write session with answer
-            msg = response.choices[0].message.content
+            msg = response.choices[0].message.content if response else "No Api-Keys available."
             st.session_state.messages.append({"role": "assistant", "content": msg})
             with st.chat_message("assistant"):
                 st.markdown(msg)
@@ -389,7 +414,7 @@ if prompt:
                         """
 
             # Call deepseek with prompt
-            deepseek_notebook = deepseek_create_notebook(new_prompt, prompt, client)
+            deepseek_notebook = deepseek_create_notebook(new_prompt, prompt)
 
             # Send notebook to environment
             notebook_result = call_jupyter_environment(deepseek_notebook)
@@ -414,7 +439,7 @@ if prompt:
                         "Error message": {error_message}
                         """
                 # Create deepseek notebook
-                deepseek_notebook = deepseek_create_notebook(new_prompt, prompt, client)
+                deepseek_notebook = deepseek_create_notebook(new_prompt, prompt)
 
                 # Send notebook to environment
                 notebook_result = call_jupyter_environment(deepseek_notebook)
@@ -440,7 +465,7 @@ if prompt:
                         """
 
             # Call deepseek with prompt
-            deepseek_notebook = deepseek_create_notebook(new_prompt, prompt, client)
+            deepseek_notebook = deepseek_create_notebook(new_prompt, prompt)
 
             # Send notebook to environment
             notebook_result = call_jupyter_environment(deepseek_notebook)
@@ -465,7 +490,7 @@ if prompt:
                         "Error message": {error_message}
                         """
                 # Create deepseek notebook
-                deepseek_notebook = deepseek_create_notebook(new_prompt, prompt, client)
+                deepseek_notebook = deepseek_create_notebook(new_prompt, prompt)
 
                 # Send notebook to environment
                 notebook_result = call_jupyter_environment(deepseek_notebook)
